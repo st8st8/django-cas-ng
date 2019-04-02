@@ -37,6 +37,15 @@ class LoginView(View):
     @method_decorator(csrf_exempt)
     def dispatch(self, request, *args, **kwargs):
         return super(LoginView, self).dispatch(request, *args, **kwargs)
+        
+    def user_is_authenticated():
+        request = self.request
+        if settings.CAS_LOGGED_MSG is not None:
+            message = settings.CAS_LOGGED_MSG % request.user.get_username()
+            messages.success(request, message)
+            return True
+        return False
+        
 
     def successful_login(self, request, next_page):
         """
@@ -78,10 +87,7 @@ class LoginView(View):
         if not next_page:
             next_page = get_redirect_url(request)
 
-        if request.user.is_authenticated:
-            if settings.CAS_LOGGED_MSG is not None:
-                message = settings.CAS_LOGGED_MSG % request.user.get_username()
-                messages.success(request, message)
+        if self.user_is_authenticated():
             return self.successful_login(request=request, next_page=next_page)
 
         ticket = request.GET.get('ticket')
