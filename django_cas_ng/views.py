@@ -38,9 +38,9 @@ class LoginView(View):
     def dispatch(self, request, *args, **kwargs):
         return super(LoginView, self).dispatch(request, *args, **kwargs)
         
-    def user_is_authenticated():
+    def user_is_authenticated(self):
         request = self.request
-        if settings.CAS_LOGGED_MSG is not None:
+        if request.user.is_authenticated and settings.CAS_LOGGED_MSG is not None:
             message = settings.CAS_LOGGED_MSG % request.user.get_username()
             messages.success(request, message)
             return True
