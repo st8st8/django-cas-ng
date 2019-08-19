@@ -59,13 +59,15 @@ class LoginView(View):
         return HttpResponseRedirect(next_page)
 
     def post(self, request):
-        if request.POST.get('logoutRequest'):
-            next_page = request.POST.get('next', settings.CAS_REDIRECT_URL)
-            service_url = get_service_url(request, next_page)
-            client = get_cas_client(service_url=service_url, request=request)
+        next_page = request.POST.get('next', settings.CAS_REDIRECT_URL)
+        service_url = get_service_url(request, next_page)
+        client = get_cas_client(service_url=service_url, request=request)
 
+        if request.POST.get('logoutRequest'):
             clean_sessions(client, request)
             return HttpResponseRedirect(next_page)
+
+        return HttpResponseRedirect(client.get_login_url())
 
     def get(self, request):
         """
@@ -100,10 +102,16 @@ class LoginView(View):
                 auth_login(request, user)
                 if not request.session.exists(request.session.session_key):
                     request.session.create()
-                SessionTicket.objects.create(
-                    session_key=request.session.session_key,
-                    ticket=ticket
-                )
+
+                try:
+                    st = SessionTicket.objects.get(session_key=request.session.session_key)
+                    st.ticket = ticket
+                    st.save()
+                except SessionTicket.DoesNotExist:
+                    SessionTicket.objects.create(
+                        session_key=request.session.session_key,
+                        ticket=ticket
+                    )
 
                 if pgtiou and settings.CAS_PROXY_CALLBACK:
                     # Delete old PGT

@@ -5,6 +5,11 @@ Django CAS NG
     :target: https://travis-ci.org/mingchen/django-cas-ng    
 .. image:: https://img.shields.io/badge/PRs-welcome-brightgreen.svg?style=flat-square
     :target: https://travis-ci.org/mingchen/django-cas-ng/pull/new
+.. image:: https://img.shields.io/badge/maintainers-wanted-red.svg
+    :target: https://travis-ci.org/mingchen/django-cas-ng
+    
+    
+**NOTE: I am not actively use this project anymore beacuse I moved off python stack. I can still maintenance this project but may not reponse in a time manner. If anyone have interesting to maintenance it (like review PR and merging), please create a ticket in issue say you can offer help, I can grant you permission.**
 
 ``django-cas-ng`` is a Central Authentication Service (CAS) client implementation.
 This project inherits from `django-cas`_ (which has not been updated since
@@ -239,11 +244,11 @@ these ones:
 
     @csrf_exempt
     def login(request, **kwargs):
-        return _add_locale(request, baseviews.login(request, **kwargs))
+        return _add_locale(request, baseviews.LoginView.as_view()(request, **kwargs))
 
 
     def logout(request, **kwargs):
-        return _add_locale(request, baseviews.logout(request, **kwargs))
+        return _add_locale(request, baseviews.LoginView.as_view()(request, **kwargs))
 
 
     def _add_locale(request, response):
