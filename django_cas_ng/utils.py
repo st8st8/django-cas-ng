@@ -1,4 +1,6 @@
 import warnings
+from typing import Union
+from urllib import parse as urllib_parse
 
 from cas import CASClient
 from django.conf import settings as django_settings
@@ -8,9 +10,9 @@ from django.contrib.auth import (
     SESSION_KEY,
     load_backend,
 )
-from django.contrib.auth.models import AnonymousUser
+from django.contrib.auth.models import AnonymousUser, User
+from django.contrib.sessions.backends.base import SessionBase
 from django.shortcuts import resolve_url
-from django.utils.six.moves import urllib_parse
 
 
 def get_protocol(request):
@@ -45,7 +47,10 @@ def get_service_url(request, redirect_to=None):
     if hasattr(django_settings, 'CAS_ROOT_PROXIED_AS'):
         service = django_settings.CAS_ROOT_PROXIED_AS + request.path
     else:
-        protocol = get_protocol(request)
+        if django_settings.CAS_FORCE_SSL_SERVICE_URL:
+            protocol = 'https'
+        else:
+            protocol = get_protocol(request)
         host = request.get_host()
         service = urllib_parse.urlunparse(
             (protocol, host, request.path, '', '', ''),
@@ -93,7 +98,10 @@ def get_cas_client(service_url=None, request=None):
     )
 
 
-def get_user_from_session(session):
+def get_user_from_session(session: SessionBase) -> Union[User, AnonymousUser]:
+    """
+    Get User object (or AnonymousUser() if not logged in) from session.
+    """
     try:
         user_id = session[SESSION_KEY]
         backend_path = session[BACKEND_SESSION_KEY]

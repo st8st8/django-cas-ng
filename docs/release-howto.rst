@@ -1,3 +1,5 @@
+:orphan:
+
 *********************
 How To Make A Release
 *********************
@@ -41,3 +43,8 @@ Troubleshooting
     $ brew install gettext
     $ export PATH=$PATH:/usr/local/Cellar/gettext/0.19.8.1/bin
     $ make build
+
+
+    error: invalid command 'bdist_wheel'
+
+    $ pip install wheel

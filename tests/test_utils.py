@@ -1,5 +1,3 @@
-from __future__ import absolute_import
-
 from django.test import RequestFactory
 from django_cas_ng.utils import get_redirect_url, get_service_url
 
@@ -66,6 +64,19 @@ def test_service_url_root_proxied_as(settings):
     actual = get_service_url(request)
     expected = 'https://foo.bar:8443/login/?next=%2F'
     assert actual == expected
+
+
+def test_force_ssl_service_url(settings):
+    settings.CAS_FORCE_SSL_SERVICE_URL = True
+
+    factory = RequestFactory()
+    request = factory.get('/login/')
+
+    actual = get_service_url(request)
+    expected = 'https://testserver/login/?next=%2F'
+
+    assert actual == expected
+
 
 #
 # get_redirect_url tests
