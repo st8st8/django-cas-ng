@@ -1,6 +1,5 @@
 from importlib import import_module
 
-import django
 import pytest
 from django.conf import settings
 from django.contrib.auth.middleware import AuthenticationMiddleware
@@ -8,15 +7,60 @@ from django.contrib.sessions.middleware import SessionMiddleware
 from django.core.exceptions import PermissionDenied
 from django.test import RequestFactory
 from django_cas_ng.models import ProxyGrantingTicket, SessionTicket
-from django_cas_ng.views import CallbackView, LoginView, LogoutView
+from django_cas_ng.utils import RedirectException
+from django_cas_ng.views import CallbackView, LoginView, LogoutView, is_local_url, clean_next_page
 
 SessionStore = import_module(settings.SESSION_ENGINE).SessionStore
 
 
 # function takes a request and applies a middleware process
 def process_request_for_middleware(request, middleware):
-    middleware = middleware()
+    middleware = middleware("response")
     middleware.process_request(request)
+
+
+def test_is_local_url():
+    assert not is_local_url('https://a.com', 'https://b.com')
+    assert not is_local_url('https://a.com', 'https://a.com.fake')
+    assert not is_local_url('https://a.com', 'http://a.com')
+    assert not is_local_url('https://a.com', 'http://b.a.com')
+    assert not is_local_url('https://a.com', 'https://b.a.com')
+    assert not is_local_url('//a.com', 'http://a.com')
+    assert not is_local_url('//a.com', 'https://a.com')
+    assert not is_local_url('https://a.com', '//a.com.fake')
+    assert not is_local_url('https://a.com', '//b.com')
+    assert not is_local_url('https://sub.a.com', '//a.com')
+    assert not is_local_url('https://a.com/path', 'https://a.com')
+    assert not is_local_url('https://a.com/fa', 'https://a.com/fa-ke')
+
+    assert is_local_url('//a.com', '//a.com')
+    assert is_local_url('http://a.com', '//a.com')
+    assert is_local_url('https://a.com', '//a.com')
+    assert is_local_url('https://a.com', '//a.com/path')
+    assert is_local_url('https://a.com', '/path')
+    assert is_local_url('https://a.com', '/')
+    assert is_local_url('https://a.com/', '/path')
+    assert is_local_url('https://a.com/', 'https://a.com')
+    assert is_local_url('https://a.com/path', 'https://a.com/path/folder')
+
+
+def test_clean_next_page(rf):
+    request = rf.get('/login/')
+    next_page = clean_next_page(request=request, next_page='testserver/next/path')
+    assert next_page == 'testserver/next/path'
+
+
+def test_clean_next_page_invalid(rf):
+    request = rf.get('/login/')
+    with pytest.raises(RedirectException):
+        clean_next_page(request=request, next_page='http://invalid.com')
+
+
+def test_clean_next_page_invalid_override(rf, settings):
+    request = rf.get('/login/')
+    settings.CAS_CHECK_NEXT = False
+    next_page = clean_next_page(request=request, next_page='http://invalid.com')
+    assert next_page == 'http://invalid.com'
 
 
 @pytest.mark.django_db
@@ -56,19 +100,19 @@ def test_login_post_logout(django_user_model, settings):
 
     # Create a fake pgt
     pgt = ProxyGrantingTicket.objects.create(session_key=session.session_key,
-                                       user=user, pgtiou='fake-ticket-iou',
-                                       pgt='fake-ticket')
+                                             user=user, pgtiou='fake-ticket-iou',
+                                             pgt='fake-ticket')
     assert pgt is not None
     assert ProxyGrantingTicket.objects.filter(session_key=session.session_key,
-                                       user=user, pgtiou='fake-ticket-iou',
-                                       pgt='fake-ticket').exists() is True
+                                              user=user, pgtiou='fake-ticket-iou',
+                                              pgt='fake-ticket').exists() is True
 
     LoginView().post(request)
     assert SessionTicket.objects.filter(session_key=session.session_key,
                                         ticket='fake-ticket').exists() is False
     assert ProxyGrantingTicket.objects.filter(session_key=session.session_key,
-                                       user=user, pgtiou='fake-ticket-iou',
-                                       pgt='fake-ticket').exists() is False
+                                              user=user, pgtiou='fake-ticket-iou',
+                                              pgt='fake-ticket').exists() is False
     assert SessionTicket.objects.filter(session_key=session.session_key,
                                         ticket='fake-ticket').exists() is False
 
@@ -101,10 +145,7 @@ def test_login_authenticate_and_create_user(monkeypatch, django_user_model, sett
     response = LoginView().get(request)
     assert response.status_code == 302
     assert response['Location'] == '/'
-    if django.VERSION[0] < 2:
-        assert django_user_model.objects.get(username='test@example.com').is_authenticated() is True
-    else:
-        assert django_user_model.objects.get(username='test@example.com').is_authenticated is True
+    assert django_user_model.objects.get(username='test@example.com').is_authenticated is True
 
 
 @pytest.mark.django_db
@@ -178,10 +219,7 @@ def test_login_proxy_callback(monkeypatch, django_user_model, settings):
 
     response = LoginView().get(request)
     assert response.status_code == 302
-    if django.VERSION[0] < 2:
-        assert django_user_model.objects.get(username='test@example.com').is_authenticated() is True
-    else:
-        assert django_user_model.objects.get(username='test@example.com').is_authenticated is True
+    assert django_user_model.objects.get(username='test@example.com').is_authenticated is True
     assert ProxyGrantingTicket.objects.filter(pgtiou='fake-pgtiou').exists() is True
     assert ProxyGrantingTicket.objects.filter(pgtiou='fake-pgtiou').count() == 1
 
@@ -219,11 +257,8 @@ def test_login_redirect_based_on_cookie(monkeypatch, django_user_model, settings
     assert response.status_code == 302
     assert response['Location'] == '/admin/'
 
-    assert 'CASNEXT' not in request.session
-    if django.VERSION[0] < 2:
-        assert django_user_model.objects.get(username='test@example.com').is_authenticated() is True
-    else:
-        assert django_user_model.objects.get(username='test@example.com').is_authenticated is True
+    assert request.session['CASNEXT'] is None
+    assert django_user_model.objects.get(username='test@example.com').is_authenticated is True
 
 
 @pytest.mark.django_db
@@ -286,6 +321,7 @@ def test_login_no_ticket_stores_explicit_next(settings):
     assert 'CASNEXT' in request.session
     assert request.session['CASNEXT'] == '/admin/'
 
+
 @pytest.mark.django_db
 def test_logout_not_completely(django_user_model, settings):
     """
@@ -304,10 +340,7 @@ def test_logout_not_completely(django_user_model, settings):
 
     response = LogoutView().get(request)
     assert response.status_code == 302
-    if django.VERSION[0] < 2:
-        assert request.user.is_anonymous() is True
-    else:
-        assert request.user.is_anonymous is True
+    assert request.user.is_anonymous is True
 
 
 @pytest.mark.django_db
@@ -328,10 +361,7 @@ def test_logout_completely(django_user_model, settings):
 
     response = LogoutView().get(request)
     assert response.status_code == 302
-    if django.VERSION[0] < 2:
-        assert request.user.is_anonymous() is True
-    else:
-        assert request.user.is_anonymous is True
+    assert request.user.is_anonymous is True
 
 
 @pytest.mark.django_db
@@ -386,18 +416,18 @@ def test_callback_post_logout(django_user_model, settings):
 
     # Create a fake pgt
     pgt = ProxyGrantingTicket.objects.create(session_key=session.session_key,
-                                       user=user, pgtiou='fake-ticket-iou',
-                                       pgt='fake-ticket')
+                                             user=user, pgtiou='fake-ticket-iou',
+                                             pgt='fake-ticket')
     assert pgt is not None
     assert ProxyGrantingTicket.objects.filter(session_key=session.session_key,
-                                       user=user, pgtiou='fake-ticket-iou',
-                                       pgt='fake-ticket').exists() is True
+                                              user=user, pgtiou='fake-ticket-iou',
+                                              pgt='fake-ticket').exists() is True
 
     CallbackView().post(request)
     assert SessionTicket.objects.filter(session_key=session.session_key,
                                         ticket='fake-ticket').exists() is False
     assert ProxyGrantingTicket.objects.filter(session_key=session.session_key,
-                                       user=user, pgtiou='fake-ticket-iou',
-                                       pgt='fake-ticket').exists() is False
+                                              user=user, pgtiou='fake-ticket-iou',
+                                              pgt='fake-ticket').exists() is False
     assert SessionTicket.objects.filter(session_key=session.session_key,
                                         ticket='fake-ticket').exists() is False

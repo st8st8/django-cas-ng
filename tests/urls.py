@@ -1,9 +1,10 @@
-from django.conf.urls import url
+from django.urls import path
 
 
 def dummy_view():
     pass
 
+
 urlpatterns = [
-    url(r'^$', dummy_view, name="home"),
+    path('', dummy_view, name="home"),
 ]

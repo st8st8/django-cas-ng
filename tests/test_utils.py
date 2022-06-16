@@ -1,7 +1,8 @@
-from __future__ import absolute_import
+from unittest.mock import Mock
 
+import requests
 from django.test import RequestFactory
-from django_cas_ng.utils import get_redirect_url, get_service_url
+from django_cas_ng.utils import get_redirect_url, get_service_url, get_cas_client
 
 
 #
@@ -66,6 +67,35 @@ def test_service_url_root_proxied_as(settings):
     actual = get_service_url(request)
     expected = 'https://foo.bar:8443/login/?next=%2F'
     assert actual == expected
+
+
+def test_service_url_root_proxied_as_empty_string(settings):
+    """
+    If the settings module has the attribute CAS_ROOT_PROXIED_AS but its value
+    is an empty string (or another falsy value), we must make sure the setting
+    is not considered while constructing the redirect url.
+    """
+    settings.CAS_ROOT_PROXIED_AS = ''
+
+    factory = RequestFactory()
+    request = factory.get('/login/')
+
+    actual = get_service_url(request)
+    expected = 'http://testserver/login/?next=%2F'
+    assert actual == expected
+
+
+def test_force_ssl_service_url(settings):
+    settings.CAS_FORCE_SSL_SERVICE_URL = True
+
+    factory = RequestFactory()
+    request = factory.get('/login/')
+
+    actual = get_service_url(request)
+    expected = 'https://testserver/login/?next=%2F'
+
+    assert actual == expected
+
 
 #
 # get_redirect_url tests
@@ -182,3 +212,13 @@ def test_redirect_url_next_no_named_pattern(settings):
     expected = 'home'
 
     assert actual == expected
+
+
+def test_session_factory(settings):
+    session = requests.Session()
+    settings.CAS_SESSION_FACTORY = Mock(return_value=session)
+
+    client = get_cas_client()
+
+    assert settings.CAS_SESSION_FACTORY.called
+    assert client.session is session

@@ -1,18 +1,28 @@
-.. Django CAS NG documentation master file, created by
-   sphinx-quickstart on Sat May 24 09:24:34 2014.
-   You can adapt this file completely to your liking, but it should at least
-   contain the root `toctree` directive.
+**django-cas-ng** Documentation
+============================================
 
-Welcome to Django CAS NG's documentation!
-=========================================
-
-Contents:
+**Table of Contents**
 
 .. toctree::
    :maxdepth: 2
 
+   feature
+   cas-protocol-overview
+   install
+   configuration
+   test
+   view-wrapper
+   custom-backend
+   signals
+   proxy-granting-ticket
+   i18n
    changelog
-
+   contribution
+   credits
+   references
+   CAS-Protocol-Specification
+   modules/index
+   readme
 
 Indices and tables
 ==================

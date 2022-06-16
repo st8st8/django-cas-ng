@@ -1,3 +1,5 @@
+:orphan:
+
 *********************
 How To Make A Release
 *********************
@@ -23,12 +25,14 @@ How To Make A Release
     # update setuptools if needed.
     #pip install -U pip setuptools twine
 
+    pip install wheel
     python setup.py sdist bdist_wheel upload
 
     or
 
+    pip install twine
     python setup.py sdist bdist_wheel
-    twine upload dist/django-cas-ng-3.5.9.tar.gz django_cas_ng-3.5.9-py2.py3-none-any.whl
+    twine upload dist/django-cas-ng-4.3.0.tar.gz dist/django_cas_ng-4.3.0-py2.py3-none-any.whl
 
 8. Create a new release on https://github.com/mingchen/django-cas-ng/releases
 
@@ -41,3 +45,8 @@ Troubleshooting
     $ brew install gettext
     $ export PATH=$PATH:/usr/local/Cellar/gettext/0.19.8.1/bin
     $ make build
+
+
+    error: invalid command 'bdist_wheel'
+
+    $ pip install wheel

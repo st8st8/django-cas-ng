@@ -1,4 +1,6 @@
 import warnings
+from typing import Optional, Union
+from urllib import parse as urllib_parse
 
 from cas import CASClient
 from django.conf import settings as django_settings
@@ -8,19 +10,25 @@ from django.contrib.auth import (
     SESSION_KEY,
     load_backend,
 )
-from django.contrib.auth.models import AnonymousUser
+from django.contrib.auth.models import AnonymousUser, User
+from django.contrib.sessions.backends.base import SessionBase
+from django.http import HttpRequest
 from django.shortcuts import resolve_url
-from django.utils.six.moves import urllib_parse
 
 
-def get_protocol(request):
+class RedirectException(Exception):
+    """Signals that a redirect could not be handled."""
+    pass
+
+
+def get_protocol(request: HttpRequest) -> str:
     """Returns 'http' or 'https' for the request protocol"""
     if request.is_secure():
         return 'https'
     return 'http'
 
 
-def get_redirect_url(request):
+def get_redirect_url(request: HttpRequest) -> str:
     """Redirects to referring page, or CAS_REDIRECT_URL if no referrer is
     set.
     """
@@ -40,12 +48,15 @@ def get_redirect_url(request):
     return next_
 
 
-def get_service_url(request, redirect_to=None):
+def get_service_url(request: HttpRequest, redirect_to: Optional[str] = None) -> str:
     """Generates application django service URL for CAS"""
-    if hasattr(django_settings, 'CAS_ROOT_PROXIED_AS'):
-        service = django_settings.CAS_ROOT_PROXIED_AS + request.path
+    if hasattr(django_settings, 'CAS_ROOT_PROXIED_AS') and django_settings.CAS_ROOT_PROXIED_AS:
+        service = urllib_parse.urljoin(django_settings.CAS_ROOT_PROXIED_AS, request.path)
     else:
-        protocol = get_protocol(request)
+        if django_settings.CAS_FORCE_SSL_SERVICE_URL:
+            protocol = 'https'
+        else:
+            protocol = get_protocol(request)
         host = request.get_host()
         service = urllib_parse.urlunparse(
             (protocol, host, request.path, '', '', ''),
@@ -61,10 +72,13 @@ def get_service_url(request, redirect_to=None):
     return service
 
 
-def get_cas_client(service_url=None, request=None):
+def get_cas_client(
+    service_url: Optional[str] = None,
+    request: Optional[HttpRequest] = None,
+) -> CASClient:
     """
     initializes the CASClient according to
-    the CAS_* settigs
+    the CAS_* settings
     """
     # Handle CAS_SERVER_URL without protocol and hostname
     server_url = django_settings.CAS_SERVER_URL
@@ -81,7 +95,7 @@ def get_cas_client(service_url=None, request=None):
             "environment."
         )
 
-    return CASClient(
+    kwargs = dict(
         service_url=service_url,
         version=django_settings.CAS_VERSION,
         server_url=server_url,
@@ -91,9 +105,18 @@ def get_cas_client(service_url=None, request=None):
         proxy_callback=django_settings.CAS_PROXY_CALLBACK,
         verify_ssl_certificate=django_settings.CAS_VERIFY_SSL_CERTIFICATE
     )
+    if django_settings.CAS_SESSION_FACTORY:
+        kwargs['session'] = django_settings.CAS_SESSION_FACTORY()
+    if django_settings.CAS_VERSION == 1:
+        kwargs.pop('proxy_callback')
+
+    return CASClient(**kwargs)
 
 
-def get_user_from_session(session):
+def get_user_from_session(session: SessionBase) -> Union[User, AnonymousUser]:
+    """
+    Get User object (or AnonymousUser() if not logged in) from session.
+    """
     try:
         user_id = session[SESSION_KEY]
         backend_path = session[BACKEND_SESSION_KEY]

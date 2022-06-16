@@ -1,16 +1,17 @@
 """Django CAS 1.0/2.0 authentication backend"""
 
-from __future__ import absolute_import, unicode_literals
 
 from django.conf import settings
-from django.utils.translation import ugettext_lazy as _
+from django.utils.translation import gettext_lazy as _
 
 __all__ = []
 
 _DEFAULTS = {
+    'CAS_ADMIN_REDIRECT': True,
     'CAS_ADMIN_PREFIX': None,
     'CAS_CREATE_USER': True,
     'CAS_LOGIN_URL_NAME': 'cas_ng_login',
+    'CAS_LOGOUT_URL_NAME': 'cas_ng_logout',
     'CAS_EXTRA_LOGIN_PARAMS': None,
     'CAS_RENEW': False,
     'CAS_IGNORE_REFERER': False,
@@ -20,7 +21,7 @@ _DEFAULTS = {
     'CAS_RETRY_LOGIN': False,
     'CAS_SERVER_URL': None,
     'CAS_VERSION': '2',
-    'CAS_USERNAME_ATTRIBUTE': 'uid',
+    'CAS_USERNAME_ATTRIBUTE': 'cas:user',
     'CAS_PROXY_CALLBACK': None,
     'CAS_LOGIN_MSG': _("Login succeeded. Welcome, %s."),
     'CAS_LOGGED_MSG': _("You are logged in as %s."),
@@ -30,6 +31,9 @@ _DEFAULTS = {
     'CAS_CREATE_USER_WITH_ID': False,
     'CAS_VERIFY_SSL_CERTIFICATE': True,
     'CAS_LOCAL_NAME_FIELD': None,
+    'CAS_FORCE_SSL_SERVICE_URL': False,
+    'CAS_CHECK_NEXT': True,
+    'CAS_SESSION_FACTORY': None,
 }
 
 for key, value in list(_DEFAULTS.items()):

@@ -1,10 +1,14 @@
 """CAS authentication backend"""
-from __future__ import absolute_import, unicode_literals
+
+from typing import Mapping, Optional
 
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.contrib.auth.backends import ModelBackend
+from django.contrib.auth.models import User
 from django.core.exceptions import ImproperlyConfigured
+from django.http import HttpRequest
+
 from django_cas_ng.signals import cas_user_authenticated
 
 from .utils import get_cas_client
@@ -15,14 +19,18 @@ __all__ = ['CASBackend']
 class CASBackend(ModelBackend):
     """CAS authentication backend"""
 
-    def authenticate(self, request, ticket, service):
-        """Verifies CAS ticket and gets or creates User object"""
+    def authenticate(self, request: HttpRequest, ticket: str, service: str) -> Optional[User]:
+        """
+        Verifies CAS ticket and gets or creates User object
+
+        :returns: [User] Authenticated User object or None if authenticate failed.
+        """
         client = get_cas_client(service_url=service, request=request)
         username, attributes, pgtiou = client.verify_ticket(ticket)
         if attributes and request:
             request.session['attributes'] = attributes
 
-        if settings.CAS_USERNAME_ATTRIBUTE != 'uid' and settings.CAS_VERSION != 'CAS_2_SAML_1_0':
+        if settings.CAS_USERNAME_ATTRIBUTE != 'cas:user' and settings.CAS_VERSION != 'CAS_2_SAML_1_0':
             if attributes:
                 username = attributes.get(settings.CAS_USERNAME_ATTRIBUTE)
             else:
@@ -126,19 +134,14 @@ class CASBackend(ModelBackend):
         )
         return user
 
-    # ModelBackend has a `user_can_authenticate` method starting from Django
-    # 1.10, that only allows active user to log in. For consistency,
-    # django-cas-ng will have the same behavior as Django's ModelBackend.
-    if not hasattr(ModelBackend, 'user_can_authenticate'):
-        def user_can_authenticate(self, user):
-            return True
-
-    def get_user_id(self, attributes):
+    def get_user_id(self, attributes: Mapping[str, str]) -> str:
         """
         For use when CAS_CREATE_USER_WITH_ID is True. Will raise ImproperlyConfigured
         exceptions when a user_id cannot be accessed. This is important because we
         shouldn't create Users with automatically assigned ids if we are trying to
         keep User primary key's in sync.
+
+        :returns: [string] user id.
         """
         if not attributes:
             raise ImproperlyConfigured("CAS_CREATE_USER_WITH_ID is True, but "
@@ -152,13 +155,17 @@ class CASBackend(ModelBackend):
 
         return user_id
 
-    def clean_username(self, username):
+    def clean_username(self, username: str) -> str:
         """
-        Performs any cleaning on the "username" prior to using it to get or
-        create the user object.  Returns the cleaned username.
+        Performs any cleaning on the ``username`` prior to using it to get or
+        create the user object.
 
         By default, changes the username case according to
         `settings.CAS_FORCE_CHANGE_USERNAME_CASE`.
+
+        :param username: [string] username.
+
+        :returns: [string] The cleaned username.
         """
         username_case = settings.CAS_FORCE_CHANGE_USERNAME_CASE
         if username_case == 'lower':
@@ -171,13 +178,26 @@ class CASBackend(ModelBackend):
                 "Valid values are `'lower'`, `'upper'`, and `None`.")
         return username
 
-    def configure_user(self, user):
+    def configure_user(self, user: User) -> User:
         """
         Configures a user after creation and returns the updated user.
 
-        By default, returns the user unmodified.
+        This method is called immediately after a new user is created,
+        and can be used to perform custom setup actions.
+
+        :param user: User object.
+
+        :returns: [User] The user object. By default, returns the user unmodified.
         """
         return user
 
-    def bad_attributes_reject(self, request, username, attributes):
+    def bad_attributes_reject(self,
+                              request: HttpRequest,
+                              username: str,
+                              attributes: Mapping[str, str]) -> bool:
+        """
+        Rejects a user if the returned username/attributes are not OK.
+
+        :returns: [boolean] ``True/False``. Default is ``False``.
+        """
         return False

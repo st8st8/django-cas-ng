@@ -1,5 +1,3 @@
-from __future__ import absolute_import
-
 import pytest
 from django.core.exceptions import ImproperlyConfigured
 from django.test import RequestFactory
@@ -251,12 +249,12 @@ def test_cas_attributes_renaming_working(monkeypatch, settings):
 
     def mock_verify(ticket, service):
         return 'test@example.com', \
-            {'ln': 'MyLastName','fn':'MyFirstName','unkownAttr':'knownAttr'}, \
+            {'ln': 'MyLastName', 'fn': 'MyFirstName', 'unkownAttr': 'knownAttr'}, \
             None
 
     monkeypatch.setattr('cas.CASClientV2.verify_ticket', mock_verify)
 
-    settings.CAS_RENAME_ATTRIBUTES = {'ln':'last_name'}
+    settings.CAS_RENAME_ATTRIBUTES = {'ln': 'last_name'}
     settings.CAS_APPLY_ATTRIBUTES_TO_USER = True
 
     backend = backends.CASBackend()
@@ -385,11 +383,11 @@ def test_backend_authentication_create_user_with_id_and_no_id_provided(monkeypat
     settings.CAS_CREATE_USER_WITH_ID = True
     backend = backends.CASBackend()
     with pytest.raises(ImproperlyConfigured) as excinfo:
-        user = backend.authenticate(
+        backend.authenticate(
             request, ticket='fake-ticket', service='fake-service',
         )
 
-    assert "CAS_CREATE_USER_WITH_ID is True, but `'id'` is not part of attributes." in str(excinfo)
+    assert "CAS_CREATE_USER_WITH_ID is True, but `'id'` is not part of attributes." in str(excinfo.value)
 
 
 @pytest.mark.django_db
@@ -416,11 +414,11 @@ def test_backend_authentication_create_user_with_id_and_attributes(monkeypatch, 
     settings.CAS_CREATE_USER_WITH_ID = True
     backend = backends.CASBackend()
     with pytest.raises(ImproperlyConfigured) as excinfo:
-        user = backend.authenticate(
+        backend.authenticate(
             request, ticket='fake-ticket', service='fake-service',
         )
 
-    assert "CAS_CREATE_USER_WITH_ID is True, but no attributes were provided" in str(excinfo)
+    assert "CAS_CREATE_USER_WITH_ID is True, but no attributes were provided" in str(excinfo.value)
 
 
 @pytest.mark.django_db
@@ -448,10 +446,10 @@ def test_backend_user_can_authenticate_with_cas_username_attribute(monkeypatch, 
     assert user.username == 'GOOD@EXAMPLE.COM'
 
     # Testing to make sure None is returned if username attribute is missing.
-    def mock_verify(ticket, service):
+    def mock_verify1(ticket, service):
         return 'bad@example.com', {'ticket': ticket, 'service': service}, None
 
-    monkeypatch.setattr('cas.CASClientV2.verify_ticket', mock_verify)
+    monkeypatch.setattr('cas.CASClientV2.verify_ticket', mock_verify1)
 
     user = backends.CASBackend().authenticate(
         request, ticket='fake-ticket', service='fake-service',
@@ -460,8 +458,32 @@ def test_backend_user_can_authenticate_with_cas_username_attribute(monkeypatch, 
     assert user is None
 
     # Testing to make sure None is returned if attributes are None.
-    def mock_verify(ticket, service):
+    def mock_verify2(ticket, service):
         return 'bad@example.com', None, None
+
+    monkeypatch.setattr('cas.CASClientV2.verify_ticket', mock_verify2)
+
+    user = backends.CASBackend().authenticate(
+        request, ticket='fake-ticket', service='fake-service',
+    )
+
+    assert user is None
+
+
+@pytest.mark.django_db
+def test_backend_user_can_authenticate_with_cas_username_attribute2(monkeypatch, settings):
+    """
+    Test CAS_USERNAME_ATTRIBUTE setting.
+    """
+    factory = RequestFactory()
+    request = factory.get('/login/')
+    request.session = {}
+
+    settings.CAS_USERNAME_ATTRIBUTE = 'cas:user'
+
+    # Test to make user we return the cas:user value and not an attibute named cas:user
+    def mock_verify(ticket, service):
+        return 'good', {'ticket': ticket, 'service': service, 'cas:user': 'bad'}, None
 
     monkeypatch.setattr('cas.CASClientV2.verify_ticket', mock_verify)
 
@@ -469,4 +491,4 @@ def test_backend_user_can_authenticate_with_cas_username_attribute(monkeypatch, 
         request, ticket='fake-ticket', service='fake-service',
     )
 
-    assert user is None
+    assert user.username == 'good'

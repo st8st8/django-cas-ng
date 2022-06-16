@@ -1,5 +1,3 @@
-from __future__ import absolute_import
-
 from django.contrib.auth.models import AnonymousUser
 from django.test import RequestFactory
 from django_cas_ng import views
@@ -8,7 +6,7 @@ from django_cas_ng.middleware import CASMiddleware
 
 def _process_view_with_middleware(
         middleware_cls, url, view_func):
-    middleware = middleware_cls()
+    middleware = middleware_cls(view_func)
     request_factory = RequestFactory()
     request = request_factory.get(url)
     request.user = AnonymousUser()
