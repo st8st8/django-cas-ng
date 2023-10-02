@@ -108,7 +108,13 @@ class LoginView(View):
         :param request:
         :return:
         """
-        next_page = clean_next_page(request, request.GET.get('next'))
+        next_url = getattr(
+            settings,
+            "CAS_LOGIN_NEXT_PAGE",
+            request.GET.get("next"),
+        )
+        next_page = clean_next_page(request, next_url)
+
         required = request.GET.get('required', False)
 
         service_url = get_service_url(request, next_page)
@@ -195,7 +201,12 @@ class LogoutView(View):
         :param request:
         :return:
         """
-        next_page = clean_next_page(request, request.GET.get('next'))
+        next_url = getattr(
+            settings,
+            "CAS_LOGOUT_NEXT_PAGE",
+            request.GET.get("next"),
+        )
+        next_page = clean_next_page(request, next_url)
 
         # try to find the ticket matching current session for logout signal
 
@@ -226,14 +237,18 @@ class LogoutView(View):
 
         next_page = next_page or get_redirect_url(request)
         if settings.CAS_LOGOUT_COMPLETELY:
-            if hasattr(settings, 'CAS_ROOT_PROXIED_AS') and settings.CAS_ROOT_PROXIED_AS:
-                protocol, host, _, _, _, _ = urllib_parse.urlparse(settings.CAS_ROOT_PROXIED_AS)
+            if next_page.lower().startswith("https://") or next_page.lower().startswith("http://"):
+                redirect_url = next
             else:
-                protocol = get_protocol(request)
-                host = request.get_host()
-            redirect_url = urllib_parse.urlunparse(
-                (protocol, host, next_page, '', '', ''),
-            )
+                if hasattr(settings, 'CAS_ROOT_PROXIED_AS') and settings.CAS_ROOT_PROXIED_AS:
+                    protocol, host, _, _, _, _ = urllib_parse.urlparse(settings.CAS_ROOT_PROXIED_AS)
+                else:
+                    protocol = get_protocol(request)
+                    host = request.get_host()
+
+                redirect_url = urllib_parse.urlunparse(
+                    (protocol, host, next_page, '', '', ''),
+                )
             client = get_cas_client(request=request)
             return HttpResponseRedirect(client.get_logout_url(redirect_url))
 

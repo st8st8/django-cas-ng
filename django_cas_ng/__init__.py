@@ -34,6 +34,10 @@ _DEFAULTS = {
     'CAS_FORCE_SSL_SERVICE_URL': False,
     'CAS_CHECK_NEXT': True,
     'CAS_SESSION_FACTORY': None,
+    'CAS_MAP_AFFILIATIONS': False,
+    'CAS_AFFILIATIONS_HANDLERS': [],
+    'CAS_LOGIN_NEXT_PAGE': None,
+    'CAS_LOGOUT_NEXT_PAGE': None,
 }
 
 for key, value in list(_DEFAULTS.items()):

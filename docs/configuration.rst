@@ -54,12 +54,24 @@ This is the only setting you must explicitly define.
 Set it to the base URL of your CAS source (e.g. https://account.example.com/cas/).
 
 
+``CAS_ADMIN_REDIRECT`` [Optional]
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+If ``True``, django-cas-ng will also take over the Django administration site.
+If you use a mix of CAS accounts and local Django accounts, and want to use
+the latter to log in to the administration site, you should set it to ``False``.
+
+The default is ``True``.
+
+
 ``CAS_ADMIN_PREFIX`` [Optional]
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 The URL prefix of the Django administration site.
 If undefined, the CAS middleware will check the view being rendered to
 see if it lives in ``django.contrib.admin.views``.
+
+If ``CAS_ADMIN_REDIRECT`` is ``False``, this option will be ignored.
 
 The default is ``None``.
 
@@ -343,16 +355,51 @@ Example usage:
     CAS_SESSION_FACTORY = cas_get_session
 
 
+``CAS_MAP_AFFILIATIONS`` [Optional]
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+If ``True``, django-cas-ng will create a Django group for each
+``affiliation`` that the CAS server associates with the user, during
+the authentication process.
+
+The default is ``False``.
+
+
+``CAS_AFFILIATIONS_HANDLERS`` [Optional]
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+This is an optional list of functions to apply to the user's CAS
+affiliations. The callback is: ``handler(user, affils)``.
+
+The default is ``[]``.
+
+``CAS_LOGIN_NEXT_PAGE`` [Optional]
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The relative path where to send a user after logging in.
+It may be different than CAS_REDIRECT_URL, for example if you want to use a
+specific callback function.
+
+The default is ``None``.
+
+``CAS_LOGOUT_NEXT_PAGE`` [Optional]
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The relative path where to send a user after logging out.
+It may be different than CAS_REDIRECT_URL, for example if you want to use a
+specific callback function.
+
+The default is ``None``.
+
+
 URL dispatcher
 ^^^^^^^^^^^^^^
 
 Make sure your project knows how to log users in and out by adding these to
-your URL mappings, noting the `simplified URL routing syntax`_ in Django 2.0
-and later:
+your URL mappings:
 
 ..  code-block:: python
 
-    # Django 2.0+
     from django.urls import path
     import django_cas_ng.views
 
@@ -361,19 +408,6 @@ and later:
 	path('accounts/login', django_cas_ng.views.LoginView.as_view(), name='cas_ng_login'),
         path('accounts/logout', django_cas_ng.views.LogoutView.as_view(), name='cas_ng_logout'),
     ]
-
-..  code-block:: python
-
-    # Django < 2.0
-    from django.conf.urls import url
-    import django_cas_ng.views
-
-    urlpatterns = [
-        # ...
-        url(r'^accounts/login$', django_cas_ng.views.LoginView.as_view(), name='cas_ng_login'),
-        url(r'^accounts/logout$', django_cas_ng.views.LogoutView.as_view(), name='cas_ng_logout'),
-    ]
-
 
 If you use the middleware, the ``login`` and ``logout`` url must be given the
 name ``cas_ng_login`` and ``cas_ng_logout`` or it will create redirection
@@ -384,13 +418,7 @@ configured:
 
 ..  code-block:: python
 
-    # Django 2.0+
     path('accounts/callback', django_cas_ng.views.CallbackView.as_view(), name='cas_ng_proxy_callback'),
-
-..  code-block:: python
-
-    # Django < 2.0
-    url(r'^accounts/callback$', django_cas_ng.views.CallbackView.as_view(), name='cas_ng_proxy_callback'),
 
 
 Database
