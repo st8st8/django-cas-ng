@@ -7,6 +7,10 @@ How To Make A Release
 1. Update `docs/changelog.txt`
 2. Update version in `docs/conf.py`, `setup.py`.
 3. commit changes.
+
+    git add docs/changelog.rst docs/conf.py setup.py
+    git commit -m 'Release <version here>' docs/changelog.rst docs/conf.py setup.py
+
 4. Tag a version, e.g.
 
     git tag v3.2.0
@@ -23,13 +27,15 @@ How To Make A Release
 7. Upload release to pypi.python.org
 
     # update setuptools if needed.
-    #pip install -U pip setuptools twine
-
-    pip install wheel
-    python setup.py sdist bdist_wheel upload
-
-    or
-
+    # pip install -U pip setuptools twine
+    #
+    # pip install wheel
+    # python setup.py sdist bdist_wheel upload
+    #
+    # or
+    #
+    # should always use `twine` to upload
+    #
     pip install twine
     python setup.py sdist bdist_wheel
     twine upload dist/django-cas-ng-4.3.0.tar.gz dist/django_cas_ng-4.3.0-py2.py3-none-any.whl
